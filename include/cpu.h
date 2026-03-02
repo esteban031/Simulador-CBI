@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -15,6 +16,7 @@ public:
 
     void loadProgram(const std::vector<Instruction>& program);
     void setVerbose(bool verbose);
+    void setTraceStream(std::ostream* stream);
     void run();
 
 private:
@@ -26,6 +28,8 @@ private:
     void logFetch(const Instruction& instruction, long long currentIcr) const;
     void logDecode(const Instruction& instruction) const;
     void logExecute() const;
+    void logAction(const std::string& message) const;
+    void emitTrace(const std::string& message) const;
     std::size_t parseAddressToken(const Instruction& instruction, const std::string& token) const;
     long long parseImmediateToken(const Instruction& instruction, const std::string& token);
     long long readMemory(const Instruction& instruction, const std::string& addressToken);
@@ -56,4 +60,5 @@ private:
     Register mdr_;
     UcState ucState_;
     bool verbose_;
+    std::ostream* traceStream_;
 };

@@ -13,7 +13,8 @@ Cpu::Cpu()
       mar_("MAR"),
       mdr_("MDR"),
       ucState_(UcState::HALT),
-      verbose_(false) {}
+      verbose_(false),
+      traceStream_(nullptr) {}
 
 void Cpu::loadProgram(const std::vector<Instruction>& program) {
     program_ = program;
@@ -26,6 +27,10 @@ void Cpu::loadProgram(const std::vector<Instruction>& program) {
 
 void Cpu::setVerbose(bool verbose) {
     verbose_ = verbose;
+}
+
+void Cpu::setTraceStream(std::ostream* stream) {
+    traceStream_ = stream;
 }
 
 void Cpu::run() {
@@ -88,31 +93,52 @@ const Instruction* Cpu::fetchNextInstruction() {
 }
 
 void Cpu::logFetch(const Instruction& instruction, long long currentIcr) const {
-    if (!verbose_) {
-        return;
-    }
+    const std::string message =
+        "[FETCH] ICR=" + std::to_string(currentIcr) + " RAW=\"" + instruction.rawLine + "\"";
+    emitTrace(message);
 
-    std::cerr << "[FETCH] ICR=" << currentIcr << " RAW=\"" << instruction.rawLine << "\"\n";
+    if (verbose_) {
+        std::cerr << message << '\n';
+    }
 }
 
 void Cpu::logDecode(const Instruction& instruction) const {
-    if (!verbose_) {
-        return;
-    }
+    const std::string message =
+        "[DECODE] opcode=" + instruction.opcode + " ACC=" + std::to_string(acc_.get()) +
+        " ICR=" + std::to_string(icr_.get()) + " MAR=" + std::to_string(mar_.get()) +
+        " MDR=" + std::to_string(mdr_.get());
+    emitTrace(message);
 
-    std::cerr << "[DECODE] opcode=" << instruction.opcode << " ACC=" << acc_.get()
-              << " ICR=" << icr_.get() << " MAR=" << mar_.get() << " MDR=" << mdr_.get()
-              << '\n';
+    if (verbose_) {
+        std::cerr << message << '\n';
+    }
 }
 
 void Cpu::logExecute() const {
-    if (!verbose_) {
+    const std::string message =
+        "[EXECUTE] ACC=" + std::to_string(acc_.get()) + " ICR=" + std::to_string(icr_.get()) +
+        " MAR=" + std::to_string(mar_.get()) + " MDR=" + std::to_string(mdr_.get()) +
+        " UC=" + ucStateToString(ucState_);
+    emitTrace(message);
+
+    if (verbose_) {
+        std::cerr << message << '\n';
+    }
+}
+
+void Cpu::logAction(const std::string& message) const {
+    emitTrace("  -> " + message);
+
+    if (verbose_) {
+        std::cerr << "  -> " << message << '\n';
+    }
+}
+
+void Cpu::emitTrace(const std::string& message) const {
+    if (traceStream_ == nullptr) {
         return;
     }
-
-    std::cerr << "[EXECUTE] ACC=" << acc_.get() << " ICR=" << icr_.get()
-              << " MAR=" << mar_.get() << " MDR=" << mdr_.get()
-              << " UC=" << ucStateToString(ucState_) << '\n';
+    (*traceStream_) << message << '\n';
 }
 
 std::size_t Cpu::parseAddressToken(
@@ -274,17 +300,26 @@ void Cpu::executeSet(const Instruction& instruction) {
     const std::array<std::string, 4>& operands = instruction.operands;
     const long long value = parseImmediateToken(instruction, operands[1]);
     writeMemory(instruction, operands[0], value);
+    logAction("SET: MEM[" + operands[0] + "] = " + std::to_string(value));
 }
 
 void Cpu::executeLdr(const Instruction& instruction) {
-    acc_.set(readMemory(instruction, instruction.operands[0]));
+    const std::string& source = instruction.operands[0];
+    const long long value = readMemory(instruction, source);
+    acc_.set(value);
+    logAction("LDR: ACC = MEM[" + source + "] = " + std::to_string(value));
 }
 
 void Cpu::executeAdd(const Instruction& instruction) {
     const std::array<std::string, 4>& operands = instruction.operands;
     if (isNullToken(operands[1])) {
         const long long value = readMemory(instruction, operands[0]);
-        acc_.set(acc_.get() + value);
+        const long long previousAcc = acc_.get();
+        const long long result = previousAcc + value;
+        acc_.set(result);
+        logAction(
+            "ADD(1): ACC = " + std::to_string(previousAcc) + " + MEM[" + operands[0] +
+            "](" + std::to_string(value) + ") = " + std::to_string(result));
         return;
     }
 
@@ -292,9 +327,13 @@ void Cpu::executeAdd(const Instruction& instruction) {
     const long long rhs = readMemory(instruction, operands[1]);
     const long long result = lhs + rhs;
     acc_.set(result);
+    logAction(
+        "ADD(2/3): ACC = MEM[" + operands[0] + "](" + std::to_string(lhs) + ") + MEM[" +
+        operands[1] + "](" + std::to_string(rhs) + ") = " + std::to_string(result));
 
     if (!isNullToken(operands[2])) {
         writeMemory(instruction, operands[2], result);
+        logAction("ADD(3): MEM[" + operands[2] + "] = " + std::to_string(result));
     }
 }
 
@@ -302,48 +341,64 @@ void Cpu::executeInc(const Instruction& instruction) {
     const std::string& destination = instruction.operands[0];
     const long long value = readMemory(instruction, destination) + 1;
     writeMemory(instruction, destination, value);
+    logAction("INC: MEM[" + destination + "] incremented to " + std::to_string(value));
 }
 
 void Cpu::executeDec(const Instruction& instruction) {
     const std::string& destination = instruction.operands[0];
     const long long value = readMemory(instruction, destination) - 1;
     writeMemory(instruction, destination, value);
+    logAction("DEC: MEM[" + destination + "] decremented to " + std::to_string(value));
 }
 
 void Cpu::executeStr(const Instruction& instruction) {
     writeMemory(instruction, instruction.operands[0], acc_.get());
+    logAction(
+        "STR: MEM[" + instruction.operands[0] + "] = ACC(" + std::to_string(acc_.get()) + ")");
 }
 
 void Cpu::executeShw(const Instruction& instruction) {
     const std::string& operand = instruction.operands[0];
 
     if (operand == "ACC") {
-        std::cout << acc_.get() << '\n';
+        const long long value = acc_.get();
+        std::cout << value << '\n';
+        logAction("SHW: displaying ACC = " + std::to_string(value));
         return;
     }
 
     if (operand == "ICR") {
-        std::cout << icr_.get() << '\n';
+        const long long value = icr_.get();
+        std::cout << value << '\n';
+        logAction("SHW: displaying ICR = " + std::to_string(value));
         return;
     }
 
     if (operand == "MAR") {
-        std::cout << mar_.get() << '\n';
+        const long long value = mar_.get();
+        std::cout << value << '\n';
+        logAction("SHW: displaying MAR = " + std::to_string(value));
         return;
     }
 
     if (operand == "MDR") {
-        std::cout << mdr_.get() << '\n';
+        const long long value = mdr_.get();
+        std::cout << value << '\n';
+        logAction("SHW: displaying MDR = " + std::to_string(value));
         return;
     }
 
     if (operand == "UC") {
-        std::cout << ucStateToString(ucState_) << '\n';
+        const char* value = ucStateToString(ucState_);
+        std::cout << value << '\n';
+        logAction(std::string("SHW: displaying UC = ") + value);
         return;
     }
 
     if (!operand.empty() && !isRegisterToken(operand) && operand[0] == 'D') {
-        std::cout << readMemory(instruction, operand) << '\n';
+        const long long value = readMemory(instruction, operand);
+        std::cout << value << '\n';
+        logAction("SHW: displaying MEM[" + operand + "] = " + std::to_string(value));
         return;
     }
 
@@ -352,12 +407,19 @@ void Cpu::executeShw(const Instruction& instruction) {
 
 void Cpu::executePause() {
     ucState_ = UcState::PAUSED;
+    const std::string pauseMessage = "[PAUSE] Execution paused. Press Enter to continue...";
+    emitTrace(pauseMessage);
+    if (verbose_) {
+        std::cerr << pauseMessage << '\n';
+    }
     std::string ignored;
     std::getline(std::cin, ignored);
+    logAction("PAUSE: resumed");
 }
 
 void Cpu::executeEnd() {
     ucState_ = UcState::HALT;
+    logAction("END: program halted");
 }
 
 const char* Cpu::ucStateToString(UcState state) {
