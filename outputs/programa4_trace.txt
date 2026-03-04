@@ -30,7 +30,9 @@ Instructions loaded: 10
 [EXECUTE] ACC=23 ICR=7 MAR=2 MDR=23 UC=EXECUTE
 [FETCH] ICR=7 RAW="PAUSE NULL NULL NULL"
 [DECODE] opcode=PAUSE ACC=23 ICR=8 MAR=2 MDR=23
-[PAUSE] Execution paused. Press Enter to continue...
+[PAUSE] Execution paused. Enter menu commands to inspect state.
+[PAUSE] REGS ACC=23 ICR=8 MAR=2 MDR=23 UC=PAUSED
+[PAUSE] Continue requested.
   -> PAUSE: resumed
 [EXECUTE] ACC=23 ICR=8 MAR=2 MDR=23 UC=PAUSED
 [FETCH] ICR=8 RAW="SHW D2 NULL NULL NULL"

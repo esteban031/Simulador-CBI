@@ -2,6 +2,7 @@
 
 #include <array>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -407,19 +408,144 @@ void Cpu::executeShw(const Instruction& instruction) {
 
 void Cpu::executePause() {
     ucState_ = UcState::PAUSED;
-    const std::string pauseMessage = "[PAUSE] Execution paused. Press Enter to continue...";
+    const std::string pauseMessage =
+        "[PAUSE] Execution paused. Enter menu commands to inspect state.";
     emitTrace(pauseMessage);
-    if (verbose_) {
-        std::cerr << pauseMessage << '\n';
-    }
-    std::string ignored;
-    std::getline(std::cin, ignored);
+    std::cerr << pauseMessage << '\n';
+    runPauseMenu();
     logAction("PAUSE: resumed");
 }
 
 void Cpu::executeEnd() {
     ucState_ = UcState::HALT;
     logAction("END: program halted");
+}
+
+void Cpu::runPauseMenu() {
+    for (;;) {
+        printPauseMenu();
+        std::cerr << "pause> ";
+
+        std::string line;
+        if (!std::getline(std::cin, line)) {
+            emitTrace("[PAUSE] Input stream closed. Resuming execution.");
+            std::cerr << "[PAUSE] Input stream closed. Resuming execution.\n";
+            return;
+        }
+
+        std::istringstream iss(line);
+        std::string command;
+        iss >> command;
+
+        if (command.empty()) {
+            std::cerr << "Type an option (1-5). Use 4 to continue.\n";
+            continue;
+        }
+
+        if (command == "1" || command == "regs" || command == "registers") {
+            showPauseRegisters();
+            continue;
+        }
+
+        if (command == "2" || command == "mem") {
+            std::string addressToken;
+            iss >> addressToken;
+            if (addressToken.empty()) {
+                std::cerr << "Usage: 2 Dn   or   mem Dn\n";
+                continue;
+            }
+            showPauseMemoryAddress(addressToken);
+            continue;
+        }
+
+        if (command == "3" || command == "range") {
+            std::string startToken;
+            std::string endToken;
+            iss >> startToken >> endToken;
+            if (startToken.empty() || endToken.empty()) {
+                std::cerr << "Usage: 3 Dstart Dend   or   range Dstart Dend\n";
+                continue;
+            }
+            showPauseMemoryRange(startToken, endToken);
+            continue;
+        }
+
+        if (command == "4" || command == "c" || command == "continue" || command == "resume") {
+            emitTrace("[PAUSE] Continue requested.");
+            return;
+        }
+
+        if (command == "5" || command == "help" || command == "?") {
+            continue;
+        }
+
+        std::cerr << "Unknown option. Use 5 for help.\n";
+    }
+}
+
+void Cpu::printPauseMenu() const {
+    std::cerr << '\n';
+    std::cerr << "=== PAUSE MENU ===\n";
+    std::cerr << "1) regs                Show ACC, ICR, MAR, MDR, UC\n";
+    std::cerr << "2) mem Dn              Show memory value at Dn\n";
+    std::cerr << "3) range Dstart Dend   Show memory values in range\n";
+    std::cerr << "4) continue            Resume execution\n";
+    std::cerr << "5) help                Show this menu again\n";
+}
+
+void Cpu::showPauseRegisters() const {
+    const std::string line = "REGS ACC=" + std::to_string(acc_.get()) +
+                             " ICR=" + std::to_string(icr_.get()) +
+                             " MAR=" + std::to_string(mar_.get()) +
+                             " MDR=" + std::to_string(mdr_.get()) +
+                             " UC=" + ucStateToString(ucState_);
+    emitTrace("[PAUSE] " + line);
+    std::cerr << line << '\n';
+}
+
+void Cpu::showPauseMemoryAddress(const std::string& token) const {
+    std::size_t address = 0;
+    if (!tryParseDnAddress(token, address)) {
+        std::cerr << "Invalid address. Expected format Dn (e.g., D2).\n";
+        return;
+    }
+
+    const long long value = memory_.read(address);
+    const std::string line = "MEM[" + token + "] = " + std::to_string(value);
+    emitTrace("[PAUSE] " + line);
+    std::cerr << line << '\n';
+}
+
+void Cpu::showPauseMemoryRange(const std::string& startToken, const std::string& endToken) const {
+    std::size_t start = 0;
+    std::size_t end = 0;
+    if (!tryParseDnAddress(startToken, start) || !tryParseDnAddress(endToken, end)) {
+        std::cerr << "Invalid range. Expected format: Dstart Dend\n";
+        return;
+    }
+
+    if (start > end) {
+        std::size_t tmp = start;
+        start = end;
+        end = tmp;
+    }
+
+    emitTrace(
+        "[PAUSE] Memory range request from D" + std::to_string(start) + " to D" +
+        std::to_string(end));
+    for (std::size_t address = start; address <= end; ++address) {
+        const long long value = memory_.read(address);
+        std::cerr << "D" << address << " = " << value << '\n';
+    }
+}
+
+bool Cpu::tryParseDnAddress(const std::string& token, std::size_t& addressOut) const {
+    if (!memory_.validateAddress(token)) {
+        return false;
+    }
+
+    addressOut = static_cast<std::size_t>(std::stoull(token.substr(1)));
+    return true;
 }
 
 const char* Cpu::ucStateToString(UcState state) {

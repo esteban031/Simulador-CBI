@@ -50,6 +50,12 @@ private:
     void executeShw(const Instruction& instruction);
     void executePause();
     void executeEnd();
+    void runPauseMenu();
+    void printPauseMenu() const;
+    void showPauseRegisters() const;
+    void showPauseMemoryAddress(const std::string& token) const;
+    void showPauseMemoryRange(const std::string& startToken, const std::string& endToken) const;
+    bool tryParseDnAddress(const std::string& token, std::size_t& addressOut) const;
     static const char* ucStateToString(UcState state);
 
     std::vector<Instruction> program_;

@@ -1,0 +1,27 @@
+Program: C:\Users\Usuario\AppData\Local\Temp\cbi_pause_menu_test.txt
+Instructions loaded: 5
+[FETCH] ICR=0 RAW="SET D1 10 NULL NULL"
+[DECODE] opcode=SET ACC=0 ICR=1 MAR=0 MDR=0
+  -> SET: MEM[D1] = 10
+[EXECUTE] ACC=0 ICR=1 MAR=1 MDR=10 UC=EXECUTE
+[FETCH] ICR=1 RAW="SET D2 20 NULL NULL"
+[DECODE] opcode=SET ACC=0 ICR=2 MAR=1 MDR=10
+  -> SET: MEM[D2] = 20
+[EXECUTE] ACC=0 ICR=2 MAR=2 MDR=20 UC=EXECUTE
+[FETCH] ICR=2 RAW="PAUSE NULL NULL NULL"
+[DECODE] opcode=PAUSE ACC=0 ICR=3 MAR=2 MDR=20
+[PAUSE] Execution paused. Enter menu commands to inspect state.
+[PAUSE] MEM[D1] = 10
+[PAUSE] Memory range request from D1 to D3
+[PAUSE] Continue requested.
+  -> PAUSE: resumed
+[EXECUTE] ACC=0 ICR=3 MAR=2 MDR=20 UC=PAUSED
+[FETCH] ICR=3 RAW="SHW D2 NULL NULL NULL"
+[DECODE] opcode=SHW ACC=0 ICR=4 MAR=2 MDR=20
+  -> SHW: displaying MEM[D2] = 20
+[EXECUTE] ACC=0 ICR=4 MAR=2 MDR=20 UC=EXECUTE
+[FETCH] ICR=4 RAW="END NULL NULL NULL"
+[DECODE] opcode=END ACC=0 ICR=5 MAR=2 MDR=20
+  -> END: program halted
+[EXECUTE] ACC=0 ICR=5 MAR=2 MDR=20 UC=HALT
+Execution finished.
