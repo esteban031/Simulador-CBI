@@ -1,0 +1,4 @@
+Program: programs\tmp_d40_test.txt
+Instructions loaded: 2
+[FETCH] ICR=0 RAW="SET D40 7 NULL NULL"
+[DECODE] opcode=SET ACC=0 ICR=1 MAR=0 MDR=0
