@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <string>
 
+#include "memory_address.h"
+
 Cpu::Cpu()
     : program_(),
       memory_(),
@@ -156,7 +158,7 @@ long long Cpu::parseImmediateToken(const Instruction& instruction, const std::st
         throwInstructionError(instruction, "Missing immediate value");
     }
 
-    if (!token.empty() && token[0] == 'D') {
+    if (!token.empty() && (token[0] == 'D' || token[0] == 'd')) {
         return readMemory(instruction, token);
     }
 
@@ -177,8 +179,9 @@ long long Cpu::parseImmediateToken(const Instruction& instruction, const std::st
 
 long long Cpu::readMemory(const Instruction& instruction, const std::string& addressToken) {
     const std::size_t address = parseAddressToken(instruction, addressToken);
-    const long long value = memory_.read(address);
-    mar_.set(static_cast<long long>(address));
+    const MemoryAddress memoryAddress(memory_, address);
+    const long long value = memoryAddress.read();
+    mar_.set(static_cast<long long>(memoryAddress.index()));
     mdr_.set(value);
     return value;
 }
@@ -186,8 +189,9 @@ long long Cpu::readMemory(const Instruction& instruction, const std::string& add
 void Cpu::writeMemory(
     const Instruction& instruction, const std::string& addressToken, long long value) {
     const std::size_t address = parseAddressToken(instruction, addressToken);
-    memory_.write(address, value);
-    mar_.set(static_cast<long long>(address));
+    MemoryAddress memoryAddress(memory_, address);
+    memoryAddress.write(value);
+    mar_.set(static_cast<long long>(memoryAddress.index()));
     mdr_.set(value);
 }
 
@@ -396,7 +400,8 @@ void Cpu::executeShw(const Instruction& instruction) {
         return;
     }
 
-    if (!operand.empty() && !isRegisterToken(operand) && operand[0] == 'D') {
+    if (!operand.empty() && !isRegisterToken(operand) &&
+        (operand[0] == 'D' || operand[0] == 'd')) {
         const long long value = readMemory(instruction, operand);
         std::cout << value << '\n';
         logAction("SHW: displaying MEM[" + operand + "] = " + std::to_string(value));
@@ -510,7 +515,8 @@ void Cpu::showPauseMemoryAddress(const std::string& token) const {
         return;
     }
 
-    const long long value = memory_.read(address);
+    const MemoryAddress memoryAddress(memory_, address);
+    const long long value = memoryAddress.read();
     const std::string line = "MEM[" + token + "] = " + std::to_string(value);
     emitTrace("[PAUSE] " + line);
     std::cerr << line << '\n';
@@ -534,7 +540,8 @@ void Cpu::showPauseMemoryRange(const std::string& startToken, const std::string&
         "[PAUSE] Memory range request from D" + std::to_string(start) + " to D" +
         std::to_string(end));
     for (std::size_t address = start; address <= end; ++address) {
-        const long long value = memory_.read(address);
+        const MemoryAddress memoryAddress(memory_, address);
+        const long long value = memoryAddress.read();
         std::cerr << "D" << address << " = " << value << '\n';
     }
 }

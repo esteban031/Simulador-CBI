@@ -2,10 +2,15 @@
 
 #include <cctype>
 
-Memory::Memory(std::size_t size) : cells_(size, 0) {}
+Memory::Memory() : cells_(kMainMemorySize, 0) {}
 
 bool Memory::validateAddress(const std::string& dn) const {
-    if (dn.size() < 2 || dn[0] != 'D') {
+    if (dn.size() < 2) {
+        return false;
+    }
+
+    const char prefix = dn[0];
+    if (prefix != 'D' && prefix != 'd') {
         return false;
     }
 
@@ -18,15 +23,11 @@ bool Memory::validateAddress(const std::string& dn) const {
         numericPart = (numericPart * 10) + static_cast<std::size_t>(dn[i] - '0');
     }
 
-    if (numericPart == 0) {
-        return false;
-    }
-
     return isValidIndex(numericPart);
 }
 
 bool Memory::isValidIndex(std::size_t address) const {
-    return address < cells_.size();
+    return address < kMainMemorySize;
 }
 
 long long Memory::read(std::size_t address) const {

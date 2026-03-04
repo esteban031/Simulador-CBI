@@ -49,22 +49,25 @@ const std::unordered_set<std::string>& supportedOpcodes() {
 }
 
 std::array<std::string, 4> parseOperands(
-    std::istringstream& iss, std::size_t lineNumber, const std::string& rawLine) {
-    std::vector<std::string> parsedOperands;
-    std::string token;
-    while (iss >> token) {
-        parsedOperands.push_back(token);
-    }
-
-    if (parsedOperands.size() < 3 || parsedOperands.size() > 4) {
-        throwParseError(lineNumber, rawLine, "Invalid operand count: expected 3 or 4 operands");
-    }
-
+    std::istringstream& iss, std::size_t /*lineNumber*/, const std::string& /*rawLine*/) {
     std::array<std::string, 4> operands = {"NULL", "NULL", "NULL", "NULL"};
-    for (std::size_t i = 0; i < parsedOperands.size(); ++i) {
-        operands[i] = std::move(parsedOperands[i]);
+    std::string token;
+    std::size_t operandIndex = 0;
+    while (iss >> token) {
+        if (operandIndex < operands.size()) {
+            operands[operandIndex] = std::move(token);
+            ++operandIndex;
+        }
     }
+
     return operands;
+}
+
+std::string normalizeOpcode(std::string opcode) {
+    for (char& ch : opcode) {
+        ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
+    }
+    return opcode;
 }
 
 Instruction parseInstructionLine(const std::string& rawLine, std::size_t lineNumber) {
@@ -73,6 +76,7 @@ Instruction parseInstructionLine(const std::string& rawLine, std::size_t lineNum
 
     std::string opcode;
     iss >> opcode;
+    opcode = normalizeOpcode(std::move(opcode));
     if (supportedOpcodes().find(opcode) == supportedOpcodes().end()) {
         throwParseError(lineNumber, rawLine, "Unknown opcode '" + opcode + "'");
     }

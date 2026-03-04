@@ -6,7 +6,11 @@
 
 class Memory {
 public:
-    explicit Memory(std::size_t size = 256);
+    static constexpr std::size_t kMinAddress = 0;
+    static constexpr std::size_t kMaxAddress = 39;
+    static constexpr std::size_t kMainMemorySize = kMaxAddress + 1;
+
+    Memory();
 
     bool validateAddress(const std::string& dn) const;
     long long read(std::size_t address) const;
