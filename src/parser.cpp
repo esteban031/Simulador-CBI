@@ -49,15 +49,20 @@ const std::unordered_set<std::string>& supportedOpcodes() {
 }
 
 std::array<std::string, 4> parseOperands(
-    std::istringstream& iss, std::size_t /*lineNumber*/, const std::string& /*rawLine*/) {
+    std::istringstream& iss, std::size_t lineNumber, const std::string& rawLine) {
+    std::vector<std::string> parsedOperands;
     std::string token;
-    std::array<std::string, 4> operands = {"NULL", "NULL", "NULL", "NULL"};
-    std::size_t index = 0;
     while (iss >> token) {
-        if (index < operands.size()) {
-            operands[index] = std::move(token);
-            ++index;
-        }
+        parsedOperands.push_back(token);
+    }
+
+    if (parsedOperands.size() < 3 || parsedOperands.size() > 4) {
+        throwParseError(lineNumber, rawLine, "Invalid operand count: expected 3 or 4 operands");
+    }
+
+    std::array<std::string, 4> operands = {"NULL", "NULL", "NULL", "NULL"};
+    for (std::size_t i = 0; i < parsedOperands.size(); ++i) {
+        operands[i] = std::move(parsedOperands[i]);
     }
     return operands;
 }
